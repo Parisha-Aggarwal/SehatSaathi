@@ -9,7 +9,7 @@ app = Flask(__name__)
 
 
 
-# load databasedataset===================================
+# load databasedataset==================================
 sym_des = pd.read_csv("datasets/symtoms_df.csv")
 precautions = pd.read_csv("datasets/precautions_df.csv")
 workout = pd.read_csv("datasets/workout_df.csv")
@@ -68,31 +68,42 @@ def index():
 def home():
     if request.method == 'POST':
         symptoms = request.form.get('symptoms')
-        # mysysms = request.form.get('mysysms')
-        # print(mysysms)
         print(symptoms)
-        if symptoms =="Symptoms":
+        if symptoms.strip().lower() == "symptoms" or not symptoms.strip():
             message = "Please either write symptoms or you have written misspelled symptoms"
             return render_template('index.html', message=message)
         else:
-
             # Split the user's input into a list of symptoms (assuming they are comma-separated)
-            user_symptoms = [s.strip() for s in symptoms.split(',')]
-            # Remove any extra characters, if any
-            user_symptoms = [symptom.strip("[]' ") for symptom in user_symptoms]
-            predicted_disease = get_predicted_value(user_symptoms)
+            user_symptoms = [s.strip().replace(" ", "_").lower() for s in symptoms.split(',')]
+
+            # Check if the symptoms exist in the dictionary
+            valid_symptoms = [symptom for symptom in user_symptoms if symptom in symptoms_dict]
+            invalid_symptoms = [symptom for symptom in user_symptoms if symptom not in symptoms_dict]
+
+            if not valid_symptoms:
+                message = "None of the symptoms entered are recognized. Please check your input."
+                return render_template('index.html', message=message)
+
+            if invalid_symptoms:
+                warning = f"Some symptoms were not recognized: {', '.join(invalid_symptoms)}. They were ignored."
+
+            predicted_disease = get_predicted_value(valid_symptoms)
             dis_des, precautions, medications, rec_diet, workout = helper(predicted_disease)
 
-            my_precautions = []
-            for i in precautions[0]:
-                my_precautions.append(i)
+            my_precautions = [prec for prec in precautions[0]]
 
-            return render_template('index.html', predicted_disease=predicted_disease, dis_des=dis_des,
-                                   my_precautions=my_precautions, medications=medications, my_diet=rec_diet,
-                                   workout=workout)
+            return render_template(
+                'index.html',
+                predicted_disease=predicted_disease,
+                dis_des=dis_des,
+                my_precautions=my_precautions,
+                medications=medications,
+                my_diet=rec_diet,
+                workout=workout,
+                warning=warning if 'warning' in locals() else None
+            )
 
     return render_template('index.html')
-
 
 
 # about view funtion and path
@@ -113,6 +124,12 @@ def developer():
 @app.route('/blog')
 def blog():
     return render_template("blog.html")
+
+@app.route('/telemedicine')
+def telemedicine():
+    # Render the telemedicine HTML page
+    return render_template('telemedicine.html')
+
 
 
 if __name__ == '__main__':
